@@ -1,26 +1,63 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+--mit-red: #750014;
+    --mit-bright-red: #ff1423;
+    --mit-gray: #8b959e;
+    --mit-gray-700: #5a636a;
+    --mit-black: #000000;
+    --mit-white: #ffffff;
+    --mit-gray-50: #f2f4f5;
+    --mit-gray-100: #e6e9eb;
+    --mit-gray-200: #cfd6db;
+    --background: var(--mit-gray-50);
+    --foreground: var(--mit-black);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+    height: 100%;
+    overflow: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-plex-sans), Arial, Helvetica, sans-serif;
+}
+
+h1,
+h2,
+h3 {
+    font-family: var(--font-source-serif), Georgia, "Times New Roman", serif;
+}
+
+:where(button, [role="button"], a, input, select, textarea):focus-visible {
+    outline: 2px solid var(--mit-red);
+    outline-offset: 2px;
+}
+
+.card-panel {
+    background: var(--mit-white);
+    border: 1px solid var(--mit-gray-200);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+}
+
+.edge-flow {
+    stroke-dasharray: 6 6;
+    animation: edge-flow 0.9s linear;
+}
+
+@keyframes edge-flow {
+    from {
+        stroke-dashoffset: 24;
+    }
+
+  to {
+      stroke-dashoffset: 0;
+  }
+}
+
+.react-flow__edge-path {
+    transition: stroke 0.25s ease, stroke-width 0.25s ease;
 }
