@@ -17,9 +17,10 @@ interface DataPlotProps {
   dataset: Dataset;
   task: TaskType;
   network: Network | null;
+  insight?: string;
 }
 
-export default function DataPlot({ dataset, task, network }: DataPlotProps) {
+export default function DataPlot({ dataset, task, network, insight }: DataPlotProps) {
   const regressionLine = useMemo(() => {
     if (!network || task !== "regression") {
       return [] as { x: number; y: number }[];
@@ -65,6 +66,9 @@ export default function DataPlot({ dataset, task, network }: DataPlotProps) {
           <div className="flex flex-col">
             <h3 className="text-sm font-semibold text-black">Data + prediction</h3>
             <span className="text-xs text-(--mit-gray-700)">Regression view</span>
+            {insight ? (
+              <span className="text-xs text-(--mit-gray-700)">{insight}</span>
+            ) : null}
           </div>
           <div className="text-xs text-(--mit-gray-700)">
             Gray dots = data, red line = prediction
@@ -108,6 +112,9 @@ export default function DataPlot({ dataset, task, network }: DataPlotProps) {
         <div className="flex flex-col">
           <h3 className="text-sm font-semibold text-black">Data + probability</h3>
           <span className="text-xs text-(--mit-gray-700)">Classification view</span>
+          {insight ? (
+            <span className="text-xs text-(--mit-gray-700)">{insight}</span>
+          ) : null}
         </div>
         <div className="flex items-center gap-3 text-xs text-(--mit-gray-700)">
           <span className="flex items-center gap-1">

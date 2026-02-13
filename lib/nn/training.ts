@@ -25,7 +25,8 @@ export function trainEpoch(
     network: Network,
     dataset: NormalizedDataset,
     task: TaskType,
-    learningRate: number
+    learningRate: number,
+    frozenLayers: boolean[] = []
 ): TrainResult {
     const lr = clamp(learningRate, 0.001, 1);
     const grads = createZeroGradients(network);
@@ -94,6 +95,9 @@ export function trainEpoch(
 
     const batchSize = dataset.normalized.length || 1;
     for (let layerIndex = 0; layerIndex < network.layers.length; layerIndex += 1) {
+        if (frozenLayers[layerIndex]) {
+            continue;
+        }
         const layer = network.layers[layerIndex];
         for (let i = 0; i < layer.weights.length; i += 1) {
             for (let j = 0; j < layer.weights[i].length; j += 1) {

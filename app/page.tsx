@@ -123,6 +123,36 @@ const GLOSSARY_TERMS = [
   },
 ];
 
+type StoryTarget = "controls" | "network" | "loss" | "data" | "model-card";
+
+const STORY_STEPS: Array<{ title: string; body: string; target: StoryTarget }> = [
+  {
+    title: "Initialize a tiny model",
+    body: "Start by creating weights and biases. You can see them in the network panel.",
+    target: "controls",
+  },
+  {
+    title: "Watch signals flow",
+    body: "Each update pushes activations forward and gradients backward along the edges.",
+    target: "network",
+  },
+  {
+    title: "Track the loss curve",
+    body: "Loss summarizes how wrong the model is. Look for a downward trend.",
+    target: "loss",
+  },
+  {
+    title: "Inspect predictions",
+    body: "The plot shows how the model fits the data at each step.",
+    target: "data",
+  },
+  {
+    title: "Read the model card",
+    body: "Use the live card to see architecture, params, and frozen layers.",
+    target: "model-card",
+  },
+];
+
 function buildDataset(id: DatasetId, seed: number): {
   dataset: Dataset;
   normalized: NormalizedDataset;
@@ -156,6 +186,13 @@ export default function Home() {
   const [highlight, setHighlight] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showGlossary, setShowGlossary] = useState(false);
+  const [explainMode, setExplainMode] = useState<"intuition" | "formal">(
+    "intuition"
+  );
+  const [storyMode, setStoryMode] = useState(false);
+  const [storyStep, setStoryStep] = useState(0);
+  const [trainingSpeed, setTrainingSpeed] = useState(2);
+  const [frozenLayers, setFrozenLayers] = useState<boolean[]>([]);
 
   const networkRef = useRef<Network | null>(null);
   const metricsRef = useRef(metrics);
@@ -212,6 +249,7 @@ export default function Home() {
     };
     const freshNetwork = createNetwork(configForNetwork);
     setNetwork(freshNetwork);
+    setFrozenLayers(new Array(freshNetwork.layers.length).fill(false));
     setMetrics({ epoch: 0, loss: null, accuracy: null });
     setLossHistory([]);
     setLastGradients(null);
@@ -241,7 +279,8 @@ export default function Home() {
       networkRef.current,
       normalizedRef.current,
       task,
-      config.learningRate
+      config.learningRate,
+      frozenLayers
     );
     const refreshedNetwork: Network = {
       ...result.network,
@@ -299,6 +338,7 @@ export default function Home() {
     setSeed(42);
     setConfig(DEFAULT_CONFIG);
     setNetwork(null);
+    setFrozenLayers([]);
     setMetrics({ epoch: 0, loss: null, accuracy: null });
     setLossHistory([]);
     setLastGradients(null);
@@ -327,7 +367,7 @@ export default function Home() {
         return;
       }
 
-      const epochsThisFrame = Math.min(2, epochsRemainingRef.current);
+      const epochsThisFrame = Math.min(trainingSpeed, epochsRemainingRef.current);
       for (let i = 0; i < epochsThisFrame; i += 1) {
         runEpoch();
         epochsRemainingRef.current -= 1;
@@ -343,7 +383,7 @@ export default function Home() {
 
     rafId = window.requestAnimationFrame(trainFrame);
     return () => window.cancelAnimationFrame(rafId);
-  }, [isTraining, isPaused, config.learningRate, task]);
+  }, [isTraining, isPaused, config.learningRate, task, trainingSpeed]);
 
   const datasetDescription = useMemo(() => {
     const def = DATASET_OPTIONS.find((option) => option.id === datasetId);
@@ -358,8 +398,46 @@ export default function Home() {
     ? "Done"
     : "Next";
 
+  const bestLoss = useMemo(() => {
+    if (!lossHistory.length) {
+      return null;
+    }
+    return Math.min(...lossHistory.map((point) => point.loss));
+  }, [lossHistory]);
+
+  const parameterCount = useMemo(() => {
+    if (!network) {
+      return 0;
+    }
+    return network.layers.reduce((total, layer) => {
+      const weightCount = layer.weights.length * layer.weights[0].length;
+      return total + weightCount + layer.biases.length;
+    }, 0);
+  }, [network]);
+
+  const explainIsFormal = explainMode === "formal";
+  const lossInsight = explainIsFormal
+    ? "Loss is the mean error per epoch (lower is better)."
+    : metrics.epoch === 0
+    ? "Run a step to see the first drop."
+    : "Each update nudges weights to reduce the error.";
+  const dataInsight = explainIsFormal
+    ? task === "classification"
+      ? "Colors represent predicted probability for class 1."
+      : "The red line is the model output after normalization."
+    : task === "classification"
+    ? "Hotter areas mean higher confidence."
+    : "The line bends as the network learns.";
+  const networkInsight = explainIsFormal
+    ? "Edges carry weighted activations; gradients adjust them."
+    : "Signals travel forward, corrections travel back.";
+
+  const activeStoryTarget = storyMode ? STORY_STEPS[storyStep]?.target : null;
+  const storyClass = (target: StoryTarget) =>
+    activeStoryTarget === target ? "story-focus" : "";
+
   return (
-    <div className="h-screen bg-(--mit-gray-50)">
+    <div className="h-screen bg-(--mit-gray-50) lab-background">
       <main className="mx-auto flex h-full w-full max-w-none flex-col gap-4 px-4 py-6 lg:px-10">
         <header className="flex shrink-0 flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -372,6 +450,48 @@ export default function Home() {
               </h1>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setStoryMode((prev) => {
+                    if (!prev) {
+                      setStoryStep(0);
+                    }
+                    return !prev;
+                  });
+                }}
+                className="rounded-full border border-(--mit-gray-200) px-4 py-2 text-xs font-semibold text-black transition hover:border-black"
+                aria-pressed={storyMode}
+                aria-label="Toggle story mode"
+              >
+                {storyMode ? "Exit Story" : "Story Mode"}
+              </button>
+              <div className="flex items-center rounded-full border border-(--mit-gray-200) bg-white p-1 text-xs font-semibold text-black">
+                <button
+                  type="button"
+                  onClick={() => setExplainMode("intuition")}
+                  className={`rounded-full px-3 py-1 transition ${
+                    explainMode === "intuition"
+                      ? "bg-(--mit-red) text-white"
+                      : "text-black"
+                  }`}
+                  aria-pressed={explainMode === "intuition"}
+                >
+                  Intuition
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExplainMode("formal")}
+                  className={`rounded-full px-3 py-1 transition ${
+                    explainMode === "formal"
+                      ? "bg-(--mit-red) text-white"
+                      : "text-black"
+                  }`}
+                  aria-pressed={explainMode === "formal"}
+                >
+                  Formal
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowGlossary(true)}
@@ -390,7 +510,11 @@ export default function Home() {
         </header>
 
         <section className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[360px_1fr]">
-          <div className="grid min-h-0 gap-4 lg:grid-rows-[minmax(0,1fr)_auto]">
+          <div
+            className={`grid min-h-0 gap-4 lg:grid-rows-[minmax(0,1fr)_auto] ${storyClass(
+              "controls"
+            )}`}
+          >
             <ControlsPanel
               datasetOptions={DATASET_OPTIONS}
               datasetId={datasetId}
@@ -406,6 +530,7 @@ export default function Home() {
               onDatasetChange={(value) => {
                 setDatasetId(value as DatasetId);
                 setNetwork(null);
+                setFrozenLayers([]);
                 setMetrics({ epoch: 0, loss: null, accuracy: null });
                 setLossHistory([]);
                 setLastGradients(null);
@@ -420,13 +545,14 @@ export default function Home() {
             />
           </div>
           <div className="grid min-h-0 gap-4 lg:grid-rows-[minmax(0,2fr)_minmax(0,1fr)]">
-            <div className="relative h-full min-h-0">
+            <div className={`relative h-full min-h-0 ${storyClass("network")}`}>
               <NetworkFlow
                 network={network}
                 task={task}
                 gradients={lastGradients}
                 isFlowing={isFlowing}
                 highlight={highlight}
+                frozenLayers={frozenLayers}
               />
               <div className="absolute right-4 top-4 z-10 flex w-66 flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-(--mit-gray-200) bg-white/95 px-3 py-2 text-xs shadow">
@@ -586,8 +712,17 @@ export default function Home() {
               </div>
             </div>
             <div className="grid min-h-0 gap-4 lg:grid-cols-2">
-              <LossChart data={lossHistory} />
-              <DataPlot dataset={dataset} task={task} network={network} />
+              <div className={storyClass("loss")}>
+                <LossChart data={lossHistory} insight={lossInsight} />
+              </div>
+              <div className={storyClass("data")}>
+                <DataPlot
+                  dataset={dataset}
+                  task={task}
+                  network={network}
+                  insight={dataInsight}
+                />
+              </div>
             </div>
           </div>
         </section>

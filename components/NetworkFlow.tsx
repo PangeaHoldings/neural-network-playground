@@ -21,6 +21,7 @@ interface NetworkFlowProps {
   gradients: Gradients | null;
   isFlowing: boolean;
   highlight: boolean;
+  frozenLayers: boolean[];
 }
 
 interface WeightedEdgeData extends Record<string, unknown> {
@@ -34,6 +35,7 @@ interface WeightedEdgeData extends Record<string, unknown> {
 type LayerNodeData = {
   label: string;
   kind: "input" | "hidden" | "output";
+  pulse: boolean;
 };
 
 type LayerNode = Node<LayerNodeData, "layerNode">;
@@ -48,7 +50,7 @@ function LayerNode({ data }: NodeProps<LayerNode>) {
           : data.kind === "output"
           ? "border-(--mit-red) bg-(--mit-red) text-white"
           : "border-(--mit-gray-200) bg-(--mit-gray-50)"
-      }`}
+      } ${data.pulse ? "node-pulse" : ""}`}
     >
       {data.label}
     </div>
@@ -109,6 +111,7 @@ export default function NetworkFlow({
   gradients,
   isFlowing,
   highlight,
+  frozenLayers,
 }: NetworkFlowProps) {
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
 
@@ -153,6 +156,7 @@ export default function NetworkFlow({
                 : layerIndex === layerSizes.length - 1
                 ? "output"
                 : "hidden",
+            pulse: isFlowing || highlight,
           },
         });
       }
@@ -166,12 +170,19 @@ export default function NetworkFlow({
           const edgeId = `E${layerIndex}-${i}-${j}`;
           const weightStrength = Math.min(5, Math.abs(weight) * 3 + 0.8);
           const positive = weight >= 0;
-          const strokeColor = highlight
+          const isFrozen = frozenLayers[layerIndex] ?? false;
+          const strokeColor = isFrozen
+            ? "var(--mit-gray-200)"
+            : highlight
             ? "var(--mit-bright-red)"
             : positive
             ? "var(--mit-red)"
             : "var(--mit-gray)";
-          const strokeDasharray = positive ? undefined : "6 4";
+          const strokeDasharray = isFrozen
+            ? "2 6"
+            : positive
+            ? undefined
+            : "6 4";
 
           edgesList.push({
             id: edgeId,
@@ -189,6 +200,7 @@ export default function NetworkFlow({
               stroke: strokeColor,
               strokeWidth: weightStrength,
               strokeDasharray,
+              opacity: isFrozen ? 0.55 : 1,
             },
           });
         }
@@ -196,7 +208,7 @@ export default function NetworkFlow({
     });
 
     return { nodes: nodesList, edges: edgesList };
-  }, [network, gradients, task, hoveredEdge, isFlowing, highlight]);
+  }, [network, gradients, task, hoveredEdge, isFlowing, highlight, frozenLayers]);
 
   if (!network) {
     return (
@@ -212,6 +224,7 @@ export default function NetworkFlow({
         <div className="text-black">Legend</div>
         <div>Thicker edge = stronger weight</div>
         <div>Red = positive, Gray dashed = negative</div>
+        <div>Pale dashed = frozen layer</div>
       </div>
       <ReactFlow
         nodes={nodes}

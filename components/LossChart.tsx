@@ -17,9 +17,10 @@ interface LossPoint {
 
 interface LossChartProps {
   data: LossPoint[];
+  insight?: string;
 }
 
-export default function LossChart({ data }: LossChartProps) {
+export default function LossChart({ data, insight }: LossChartProps) {
   const latest = data.length ? data[data.length - 1].loss : null;
   const best = data.length
     ? Math.min(...data.map((point) => point.loss))
@@ -31,6 +32,9 @@ export default function LossChart({ data }: LossChartProps) {
         <div className="flex flex-col">
           <h3 className="text-sm font-semibold text-black">Loss over time</h3>
           <span className="text-xs text-(--mit-gray-700)">Lower is better</span>
+          {insight ? (
+            <span className="text-xs text-(--mit-gray-700)">{insight}</span>
+          ) : null}
         </div>
         <div className="flex items-center gap-3 text-xs text-(--mit-gray-700)">
           <span>
