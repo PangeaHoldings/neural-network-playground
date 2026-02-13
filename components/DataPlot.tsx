@@ -62,11 +62,16 @@ export default function DataPlot({ dataset, task, network }: DataPlotProps) {
     return (
       <section className="card-panel flex h-full min-h-0 flex-col rounded-2xl p-4">
         <header className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-black">Data + prediction</h3>
-          <span className="text-xs text-(--mit-gray-700)">Regression view</span>
+          <div className="flex flex-col">
+            <h3 className="text-sm font-semibold text-black">Data + prediction</h3>
+            <span className="text-xs text-(--mit-gray-700)">Regression view</span>
+          </div>
+          <div className="text-xs text-(--mit-gray-700)">
+            Gray dots = data, red line = prediction
+          </div>
         </header>
-        <div className="h-full min-h-40 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-full min-h-40 w-full min-w-0">
+          <ResponsiveContainer width="100%" height="100%" minHeight={160} minWidth={0}>
             <ScatterChart margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="4 4" stroke="var(--mit-gray-100)" />
               <XAxis
@@ -100,10 +105,27 @@ export default function DataPlot({ dataset, task, network }: DataPlotProps) {
   return (
     <section className="card-panel flex h-full min-h-0 flex-col rounded-2xl p-4">
       <header className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-black">Data + probability</h3>
-        <span className="text-xs text-(--mit-gray-700)">Classification view</span>
+        <div className="flex flex-col">
+          <h3 className="text-sm font-semibold text-black">Data + probability</h3>
+          <span className="text-xs text-(--mit-gray-700)">Classification view</span>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-(--mit-gray-700)">
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-(--mit-red)" />
+            Class 1
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 bg-(--mit-gray-700)" />
+            Class 0
+          </span>
+        </div>
       </header>
-      <div className="relative h-full min-h-40 w-full">
+      <div className="mb-2 flex items-center gap-3 text-xs text-(--mit-gray-700)">
+        <span>Low p</span>
+        <div className="h-2 w-32 rounded-full bg-linear-to-r from-[#1f3a93] via-[#cfd6db] to-[#750014]" />
+        <span>High p</span>
+      </div>
+      <div className="relative h-full min-h-40 w-full min-w-0">
         <svg viewBox="0 0 100 100" className="h-full w-full rounded-xl">
           {heatmap.map((cell, index) => {
             const intensity = Math.min(1, Math.max(0, cell.value));
@@ -125,15 +147,30 @@ export default function DataPlot({ dataset, task, network }: DataPlotProps) {
               />
             );
           })}
-          {dataset.points.map((point, index) => (
-            <circle
-              key={index}
-              cx={point.x[0] * 100}
-              cy={100 - point.x[1] * 100}
-              r={2.2}
-              fill={point.y[0] > 0.5 ? "var(--mit-red)" : "var(--mit-gray)"}
-            />
-          ))}
+          {dataset.points.map((point, index) => {
+            const isClassOne = point.y[0] > 0.5;
+            const x = point.x[0] * 100;
+            const y = 100 - point.x[1] * 100;
+            const size = 4.2;
+            return isClassOne ? (
+              <circle
+                key={index}
+                cx={x}
+                cy={y}
+                r={2.3}
+                fill="var(--mit-red)"
+              />
+            ) : (
+              <rect
+                key={index}
+                x={x - size / 2}
+                y={y - size / 2}
+                width={size}
+                height={size}
+                fill="var(--mit-gray-700)"
+              />
+            );
+          })}
         </svg>
         {!network ? (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-(--mit-gray-700)">

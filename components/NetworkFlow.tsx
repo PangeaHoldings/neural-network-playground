@@ -171,6 +171,7 @@ export default function NetworkFlow({
             : positive
             ? "var(--mit-red)"
             : "var(--mit-gray)";
+          const strokeDasharray = positive ? undefined : "6 4";
 
           edgesList.push({
             id: edgeId,
@@ -187,6 +188,7 @@ export default function NetworkFlow({
             style: {
               stroke: strokeColor,
               strokeWidth: weightStrength,
+              strokeDasharray,
             },
           });
         }
@@ -209,7 +211,7 @@ export default function NetworkFlow({
       <div className="absolute left-4 top-4 z-10 rounded-xl bg-white/95 px-3 py-2 text-xs text-(--mit-gray-700) shadow">
         <div className="text-black">Legend</div>
         <div>Thicker edge = stronger weight</div>
-        <div>Red = positive, Gray = negative</div>
+        <div>Red = positive, Gray dashed = negative</div>
       </div>
       <ReactFlow
         nodes={nodes}

@@ -20,16 +20,27 @@ interface LossChartProps {
 }
 
 export default function LossChart({ data }: LossChartProps) {
+  const latest = data.length ? data[data.length - 1].loss : null;
+  const best = data.length
+    ? Math.min(...data.map((point) => point.loss))
+    : null;
+
   return (
     <section className="card-panel flex h-full min-h-0 flex-col rounded-2xl p-4">
       <header className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-black">Loss over time</h3>
-        <span className="text-xs text-(--mit-gray-700)">
-          Lower is better
-        </span>
+        <div className="flex flex-col">
+          <h3 className="text-sm font-semibold text-black">Loss over time</h3>
+          <span className="text-xs text-(--mit-gray-700)">Lower is better</span>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-(--mit-gray-700)">
+          <span>
+            Current: {latest === null ? "-" : latest.toFixed(4)}
+          </span>
+          <span>Best: {best === null ? "-" : best.toFixed(4)}</span>
+        </div>
       </header>
-      <div className="h-full min-h-40 w-full">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-full min-h-40 w-full min-w-0">
+        <ResponsiveContainer width="100%" height="100%" minHeight={160} minWidth={0}>
           <LineChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="4 4" stroke="var(--mit-gray-100)" />
             <XAxis
