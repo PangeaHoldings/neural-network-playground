@@ -18,9 +18,10 @@ interface DataPlotProps {
   task: TaskType;
   network: Network | null;
   insight?: string;
+  epoch?: number;
 }
 
-export default function DataPlot({ dataset, task, network, insight }: DataPlotProps) {
+export default function DataPlot({ dataset, task, network, insight, epoch }: DataPlotProps) {
   const regressionLine = useMemo(() => {
     if (!network || task !== "regression") {
       return [] as { x: number; y: number }[];
@@ -35,24 +36,24 @@ export default function DataPlot({ dataset, task, network, insight }: DataPlotPr
       points.push({ x, y });
     }
     return points;
-  }, [dataset, network, task]);
+  }, [dataset, network, task, epoch]);
 
   const heatmap = useMemo(() => {
     if (!network || task !== "classification") {
       return [] as { x: number; y: number; value: number }[];
     }
-    const grid = 22;
+    const grid = 30;
     const cells = [] as { x: number; y: number; value: number }[];
     for (let i = 0; i < grid; i += 1) {
       for (let j = 0; j < grid; j += 1) {
-        const x = i / (grid - 1);
-        const y = j / (grid - 1);
+        const x = (i + 0.5) / grid;
+        const y = (j + 0.5) / grid;
         const value = predict(network, [x, y])[0];
-        cells.push({ x, y, value });
+        cells.push({ x: i / grid, y: j / grid, value });
       }
     }
     return cells;
-  }, [network, task]);
+  }, [network, task, epoch]);
 
   if (task === "regression") {
     const scatterData = dataset.points.map((point) => ({
@@ -106,6 +107,9 @@ export default function DataPlot({ dataset, task, network, insight }: DataPlotPr
     );
   }
 
+  // Validate that the dataset has 2D inputs for classification
+  const is2D = dataset.inputSize === 2;
+
   return (
     <section className="card-panel flex h-full min-h-0 flex-col rounded-2xl p-4">
       <header className="mb-2 flex items-center justify-between">
@@ -133,57 +137,56 @@ export default function DataPlot({ dataset, task, network, insight }: DataPlotPr
         <span>High p</span>
       </div>
       <div className="relative h-full min-h-40 w-full min-w-0">
-        <svg viewBox="0 0 100 100" className="h-full w-full rounded-xl">
-          {heatmap.map((cell, index) => {
-            const intensity = Math.min(1, Math.max(0, cell.value));
-            const red = Math.round(255 * intensity);
-            const blue = Math.round(255 * (1 - intensity));
-            const color = `rgb(${red}, 30, ${blue})`;
-            const x = cell.x * 100;
-            const y = 100 - cell.y * 100;
-            const size = 100 / 21;
-            return (
-              <rect
-                key={index}
-                x={x}
-                y={y}
-                width={size}
-                height={size}
-                fill={color}
-                opacity={0.35}
-              />
-            );
-          })}
-          {dataset.points.map((point, index) => {
-            const isClassOne = point.y[0] > 0.5;
-            const x = point.x[0] * 100;
-            const y = 100 - point.x[1] * 100;
-            const size = 4.2;
-            return isClassOne ? (
-              <circle
-                key={index}
-                cx={x}
-                cy={y}
-                r={2.3}
-                fill="var(--mit-red)"
-              />
-            ) : (
-              <rect
-                key={index}
-                x={x - size / 2}
-                y={y - size / 2}
-                width={size}
-                height={size}
-                fill="var(--mit-gray-700)"
-              />
-            );
-          })}
-        </svg>
-        {!network ? (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-(--mit-gray-700)">
+        {!is2D ? (
+          <div className="flex h-full items-center justify-center text-xs text-(--mit-gray-700)">
+            Classification view requires 2D data.
+          </div>
+        ) : !network ? (
+          <div className="flex h-full items-center justify-center text-xs text-(--mit-gray-700)">
             Initialize the model to see predicted probabilities.
           </div>
-        ) : null}
+        ) : (
+          <svg key={`heatmap-${epoch || 0}`} viewBox="0 0 100 100" className="h-full w-full rounded-xl" style={{ display: 'block' }}>
+            {heatmap.map((cell, index) => {
+              const intensity = Math.min(1, Math.max(0, cell.value));
+              const red = Math.round(255 * intensity);
+              const blue = Math.round(255 * (1 - intensity));
+              const green = 30;
+              const color = `rgb(${red}, ${green}, ${blue})`;
+              const cellSize = 100 / 30;
+              const x = cell.x * 100;
+              const y = (1 - cell.y - 1/30) * 100;
+              return (
+                <rect
+                  key={`cell-${index}`}
+                  x={x}
+                  y={y}
+                  width={cellSize}
+                  height={cellSize}
+                  fill={color}
+                  opacity={0.8}
+                />
+              );
+            })}
+            {dataset.points.map((point, index) => {
+              const isClassOne = point.y[0] > 0.5;
+              const x = point.x[0] * 100;
+              const y = (1 - point.x[1]) * 100;
+              const dotSize = 1.2;
+              return (
+                <circle
+                  key={`point-${index}`}
+                  cx={x}
+                  cy={y}
+                  r={dotSize}
+                  fill={isClassOne ? "#FF1423" : "#4A5568"}
+                  stroke="white"
+                  strokeWidth="0.4"
+                />
+              );
+            })}
+          </svg>
+        )}
       </div>
     </section>
   );

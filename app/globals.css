@@ -55,11 +55,6 @@ h3 {
     background-position: center, center, center, top left, top left;
 }
 
-.story-focus {
-    box-shadow: 0 0 0 2px var(--mit-bright-red), 0 0 0 6px rgba(255, 20, 35, 0.15);
-    border-radius: 18px;
-}
-
 .node-pulse {
     box-shadow: 0 0 0 0 rgba(255, 20, 35, 0.4);
     animation: node-pulse 1.2s ease-out;
