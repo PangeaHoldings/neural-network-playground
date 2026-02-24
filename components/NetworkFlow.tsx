@@ -133,7 +133,7 @@ export default function NetworkFlow({
     const maxLayerSize = Math.max(...layerSizes);
     const isCompactNetwork = totalNodes <= 8 && maxLayerSize <= 4;
     const columnGap = isCompactNetwork ? 260 : 200;
-    const rowGap = isCompactNetwork ? 120 : 100;
+    const rowGap = isCompactNetwork ? 100 : 70;
 
     layerSizes.forEach((size, layerIndex) => {
       for (let i = 0; i < size; i += 1) {
