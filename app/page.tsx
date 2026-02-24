@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ControlsPanel, { type ModelConfig } from "@/components/ControlsPanel";
 import NetworkFlow from "@/components/NetworkFlow";
 import LossChart from "@/components/LossChart";
@@ -159,7 +159,7 @@ export default function Home() {
   const [explainMode, setExplainMode] = useState<"intuition" | "formal">(
     "intuition"
   );
-  const [trainingSpeed, setTrainingSpeed] = useState(2);
+  const trainingSpeed = 2;
   const [frozenLayers, setFrozenLayers] = useState<boolean[]>([]);
 
   const networkRef = useRef<Network | null>(null);
@@ -170,6 +170,10 @@ export default function Home() {
   const trainingRef = useRef({ isTraining, isPaused });
   const flowTimeoutRef = useRef<number | null>(null);
   const highlightTimeoutRef = useRef<number | null>(null);
+  const glossaryOpenButtonRef = useRef<HTMLButtonElement | null>(null);
+  const glossaryCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const glossaryDialogRef = useRef<HTMLDivElement | null>(null);
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setDatasetState(buildDataset(datasetId, seed));
@@ -199,6 +203,70 @@ export default function Home() {
     trainingRef.current = { isTraining, isPaused };
   }, [isTraining, isPaused]);
 
+  useEffect(() => {
+    if (!showGlossary) {
+      return;
+    }
+
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement) {
+      lastFocusedElementRef.current = activeElement;
+    }
+
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusRaf = window.requestAnimationFrame(() => {
+      glossaryCloseButtonRef.current?.focus();
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setShowGlossary(false);
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const dialogElement = glossaryDialogRef.current;
+      if (!dialogElement) {
+        return;
+      }
+
+      const focusable = dialogElement.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+
+      if (!focusable.length) {
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const current = document.activeElement;
+
+      if (event.shiftKey && current === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && current === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.cancelAnimationFrame(focusRaf);
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
+      lastFocusedElementRef.current?.focus();
+    };
+  }, [showGlossary]);
+
   const task = dataset.task as TaskType;
 
   const canTrain = Boolean(network);
@@ -223,7 +291,7 @@ export default function Home() {
     setLastGradients(null);
   };
 
-  const triggerPulse = () => {
+  const triggerPulse = useCallback(() => {
     setIsFlowing(true);
     setHighlight(true);
     if (flowTimeoutRef.current) {
@@ -237,9 +305,9 @@ export default function Home() {
       () => setHighlight(false),
       900
     );
-  };
+  }, []);
 
-  const runEpoch = () => {
+  const runEpoch = useCallback(() => {
     if (!networkRef.current) {
       return;
     }
@@ -276,7 +344,7 @@ export default function Home() {
     setLossHistory(nextHistory);
     setLastGradients(result.gradients);
     triggerPulse();
-  };
+  }, [config.learningRate, frozenLayers, task, triggerPulse]);
 
   const handleStep = () => {
     if (!network) {
@@ -351,7 +419,7 @@ export default function Home() {
 
     rafId = window.requestAnimationFrame(trainFrame);
     return () => window.cancelAnimationFrame(rafId);
-  }, [isTraining, isPaused, config.learningRate, task, trainingSpeed]);
+  }, [isTraining, isPaused, runEpoch, trainingSpeed]);
 
   const datasetDescription = useMemo(() => {
     const def = DATASET_OPTIONS.find((option) => option.id === datasetId);
@@ -366,23 +434,6 @@ export default function Home() {
     ? "Done"
     : "Next";
 
-  const bestLoss = useMemo(() => {
-    if (!lossHistory.length) {
-      return null;
-    }
-    return Math.min(...lossHistory.map((point) => point.loss));
-  }, [lossHistory]);
-
-  const parameterCount = useMemo(() => {
-    if (!network) {
-      return 0;
-    }
-    return network.layers.reduce((total, layer) => {
-      const weightCount = layer.weights.length * layer.weights[0].length;
-      return total + weightCount + layer.biases.length;
-    }, 0);
-  }, [network]);
-
   const explainIsFormal = explainMode === "formal";
   const lossInsight = explainIsFormal
     ? "Loss is the mean error per epoch (lower is better)."
@@ -396,13 +447,18 @@ export default function Home() {
     : task === "classification"
     ? "Hotter areas mean higher confidence."
     : "The line bends as the network learns.";
-  const networkInsight = explainIsFormal
-    ? "Edges carry weighted activations; gradients adjust them."
-    : "Signals travel forward, corrections travel back.";
-
   return (
-    <div className="h-screen bg-(--mit-gray-50) lab-background">
-      <main className="mx-auto flex h-full w-full max-w-none flex-col gap-4 overflow-auto px-4 py-6 lg:px-10">
+    <div className="min-h-screen bg-(--mit-gray-50) lab-background overflow-x-hidden">
+      <a
+        href="#main-content"
+        className="sr-only z-50 rounded-md bg-white px-3 py-2 text-sm font-semibold text-black shadow focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        Skip to main content
+      </a>
+      <main
+        id="main-content"
+        className="mx-auto flex min-h-screen w-full max-w-none flex-col gap-4 px-4 py-6 lg:px-10"
+      >
         <header className="flex shrink-0 flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-col gap-2">
@@ -441,10 +497,14 @@ export default function Home() {
                 </button>
               </div>
               <button
+                ref={glossaryOpenButtonRef}
                 type="button"
                 onClick={() => setShowGlossary(true)}
-                className="rounded-full border border-(--mit-gray-200) px-4 py-2 text-xs font-semibold text-black transition hover:border-black"
+                className="min-h-10 rounded-full border border-(--mit-gray-200) px-4 py-2 text-xs font-semibold text-black transition hover:border-black"
                 aria-label="Open glossary"
+                aria-haspopup="dialog"
+                aria-controls="glossary-dialog"
+                aria-expanded={showGlossary}
               >
                 Open Glossary
               </button>
@@ -457,8 +517,8 @@ export default function Home() {
           </p>
         </header>
 
-        <section className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[360px_1fr]">
-          <div className="grid min-h-0 gap-4 lg:grid-rows-[minmax(0,1fr)_auto]">
+        <section className="grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+          <div className="grid min-h-0 min-w-0 gap-4 lg:grid-rows-[minmax(0,1fr)_auto]">
             <ControlsPanel
               datasetOptions={DATASET_OPTIONS}
               datasetId={datasetId}
@@ -467,7 +527,6 @@ export default function Home() {
               seed={seed}
               metrics={metrics}
               isTraining={isTraining}
-              isPaused={isPaused}
               canTrain={canTrain}
               showAdvanced={showAdvanced}
               onToggleAdvanced={() => setShowAdvanced((prev) => !prev)}
@@ -481,15 +540,10 @@ export default function Home() {
               }}
               onSeedChange={(value) => setSeed(value)}
               onConfigChange={(nextConfig) => setConfig(nextConfig)}
-              onInitialize={handleInitialize}
-              onStep={handleStep}
-              onTrain={handleTrain}
-              onPauseToggle={handlePauseToggle}
-              onReset={handleReset}
             />
           </div>
-          <div className="grid min-h-0 gap-4 overflow-auto lg:grid-rows-[minmax(0,2fr)_minmax(0,1fr)]">
-            <div className="relative h-full min-h-0">
+          <div className="grid min-h-0 min-w-0 gap-4 lg:grid-rows-[minmax(0,2fr)_minmax(0,1fr)]">
+            <div className="relative min-h-[320px] h-[min(58vh,560px)] lg:h-full">
               <NetworkFlow
                 network={network}
                 task={task}
@@ -498,10 +552,10 @@ export default function Home() {
                 highlight={highlight}
                 frozenLayers={frozenLayers}
               />
-              <div className="absolute right-4 top-4 z-10 flex w-66 flex-col gap-2">
+              <div className="mt-3 flex w-full min-w-0 flex-col gap-2 md:absolute md:right-4 md:top-4 md:mt-0 md:w-64 md:max-w-full">
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-(--mit-gray-200) bg-white/95 px-3 py-2 text-xs shadow">
                   <span
-                    className="rounded-full bg-(--mit-gray-100) px-3 py-1 text-xs font-semibold text-(--mit-gray-700)"
+                    className="min-h-8 rounded-full bg-(--mit-gray-100) px-3 py-1 text-xs font-semibold text-(--mit-gray-700)"
                     role="status"
                     aria-live="polite"
                   >
@@ -510,7 +564,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={handleInitialize}
-                    className="rounded-full bg-(--mit-red) px-3 py-2 text-sm font-semibold text-white transition hover:bg-black"
+                    className="min-h-10 rounded-full bg-(--mit-red) px-3 py-2 text-sm font-semibold text-white transition hover:bg-black"
                     aria-label="Initialize model"
                     title="Initialize the model with random weights"
                   >
@@ -519,7 +573,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={handleStep}
-                    className="rounded-full border border-(--mit-gray-200) px-3 py-2 text-sm font-semibold text-black transition hover:border-black"
+                    className="min-h-10 rounded-full border border-(--mit-gray-200) px-3 py-2 text-sm font-semibold text-black transition hover:border-black"
                     disabled={!canTrain || isTraining}
                     aria-label="Run one training step"
                     title={
@@ -535,7 +589,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={handleTrain}
-                    className="rounded-full border border-(--mit-red) px-3 py-2 text-sm font-semibold text-(--mit-red) transition hover:bg-(--mit-red) hover:text-white"
+                    className="min-h-10 rounded-full border border-(--mit-red) px-3 py-2 text-sm font-semibold text-(--mit-red) transition hover:bg-(--mit-red) hover:text-white"
                     disabled={!canTrain || isTraining}
                     aria-label="Run training"
                     title={
@@ -551,7 +605,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={handlePauseToggle}
-                    className="rounded-full border border-(--mit-gray-200) px-3 py-2 text-sm font-semibold text-black transition hover:border-black"
+                    className="min-h-10 rounded-full border border-(--mit-gray-200) px-3 py-2 text-sm font-semibold text-black transition hover:border-black"
                     disabled={!isTraining}
                     aria-label={isPaused ? "Resume training" : "Pause training"}
                     title={isTraining ? "Pause or resume training" : "Start training to enable pause"}
@@ -561,7 +615,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={handleReset}
-                    className="rounded-full border border-black px-3 py-2 text-sm font-semibold text-black transition hover:bg-black hover:text-white"
+                    className="min-h-10 rounded-full border border-black px-3 py-2 text-sm font-semibold text-black transition hover:bg-black hover:text-white"
                     disabled={isTraining}
                     aria-label="Reset to defaults"
                     title={isTraining ? "Pause training to reset" : "Reset all settings"}
@@ -612,7 +666,7 @@ export default function Home() {
                               onClick={() =>
                                 setConfig({ ...config, activation })
                               }
-                              className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                              className={`min-h-9 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
                                 config.activation === activation
                                   ? "border-(--mit-red) bg-(--mit-red) text-white"
                                   : "border-(--mit-gray-200) text-black"
@@ -655,17 +709,17 @@ export default function Home() {
                 ) : null}
               </div>
             </div>
-            <div className="grid min-h-0 gap-4 lg:grid-cols-2">
-              <div>
+            <div className="grid min-h-0 min-w-0 gap-4 lg:grid-cols-2">
+              <div className="min-w-0">
                 <LossChart data={lossHistory} insight={lossInsight} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <DataPlot
                   dataset={dataset}
                   task={task}
                   network={network}
                   insight={dataInsight}
-                  epoch={metrics.epoch}
+                  isTraining={isTraining}
                 />
               </div>
             </div>
@@ -674,13 +728,17 @@ export default function Home() {
       </main>
       {showGlossary ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label="Neural network glossary"
         >
-          <div className="card-panel flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-2xl">
-            <div className="flex items-center justify-between border-b border-(--mit-gray-200) px-6 py-4">
+          <div
+            id="glossary-dialog"
+            ref={glossaryDialogRef}
+            className="card-panel flex h-full max-h-[calc(100dvh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl sm:max-h-[calc(100dvh-3rem)]"
+          >
+            <div className="flex items-center justify-between border-b border-(--mit-gray-200) px-4 py-4 sm:px-6">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.35em] text-(--mit-gray-700)">
                   Reference
@@ -690,15 +748,16 @@ export default function Home() {
                 </h2>
               </div>
               <button
+                ref={glossaryCloseButtonRef}
                 type="button"
                 onClick={() => setShowGlossary(false)}
-                className="rounded-full border border-(--mit-gray-200) px-4 py-2 text-xs font-semibold text-black transition hover:border-black"
+                className="min-h-10 rounded-full border border-(--mit-gray-200) px-4 py-2 text-xs font-semibold text-black transition hover:border-black"
                 aria-label="Close glossary"
               >
                 Close
               </button>
             </div>
-            <div className="flex-1 overflow-auto px-6 py-4">
+            <div className="flex-1 overflow-auto px-4 py-4 sm:px-6">
               <p className="max-w-3xl text-sm text-(--mit-gray-700)">
                 Plain-language definitions of the terms used throughout the
                 playground.

@@ -129,8 +129,11 @@ export default function NetworkFlow({
     const nodesList: LayerNode[] = [];
     const edgesList: WeightedEdge[] = [];
 
-    const columnGap = 180;
-    const rowGap = 90;
+    const totalNodes = layerSizes.reduce((sum, size) => sum + size, 0);
+    const maxLayerSize = Math.max(...layerSizes);
+    const isCompactNetwork = totalNodes <= 8 && maxLayerSize <= 4;
+    const columnGap = isCompactNetwork ? 260 : 200;
+    const rowGap = isCompactNetwork ? 120 : 100;
 
     layerSizes.forEach((size, layerIndex) => {
       for (let i = 0; i < size; i += 1) {
@@ -219,8 +222,8 @@ export default function NetworkFlow({
   }
 
   return (
-    <div className="card-panel relative h-full min-h-64 rounded-2xl p-3">
-      <div className="absolute left-4 top-4 z-10 rounded-xl bg-white/95 px-3 py-2 text-xs text-(--mit-gray-700) shadow">
+    <div className="card-panel relative h-full min-h-64 overflow-hidden rounded-2xl p-3">
+      <div className="absolute left-4 top-4 z-10 hidden rounded-xl bg-white/95 px-3 py-2 text-xs text-(--mit-gray-700) shadow sm:block">
         <div className="text-black">Legend</div>
         <div>Thicker edge = stronger weight</div>
         <div>Red = positive, Gray dashed = negative</div>
@@ -232,6 +235,9 @@ export default function NetworkFlow({
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
+        fitViewOptions={{ padding: 0.3, maxZoom: 0.85 }}
+        minZoom={0.35}
+        maxZoom={1}
         panOnScroll
         nodesDraggable={false}
         nodesConnectable={false}

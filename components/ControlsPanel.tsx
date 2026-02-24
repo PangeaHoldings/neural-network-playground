@@ -24,21 +24,13 @@ interface ControlsPanelProps {
   seed: number;
   metrics: Metrics;
   isTraining: boolean;
-  isPaused: boolean;
   canTrain: boolean;
   showAdvanced: boolean;
   onToggleAdvanced: () => void;
   onDatasetChange: (id: string) => void;
   onSeedChange: (seed: number) => void;
   onConfigChange: (config: ModelConfig) => void;
-  onInitialize: () => void;
-  onStep: () => void;
-  onTrain: () => void;
-  onPauseToggle: () => void;
-  onReset: () => void;
 }
-
-const activationOptions: ActivationName[] = ["relu", "sigmoid", "tanh"];
 
 export default function ControlsPanel({
   datasetOptions,
@@ -48,18 +40,12 @@ export default function ControlsPanel({
   seed,
   metrics,
   isTraining,
-  isPaused,
   canTrain,
   showAdvanced,
   onToggleAdvanced,
   onDatasetChange,
   onSeedChange,
   onConfigChange,
-  onInitialize,
-  onStep,
-  onTrain,
-  onPauseToggle,
-  onReset,
 }: ControlsPanelProps) {
   const statusLabel = !canTrain
     ? "Not initialized"
@@ -74,15 +60,15 @@ export default function ControlsPanel({
     ? "bg-(--mit-bright-red)"
     : "bg-(--mit-red)";
   return (
-    <section className="card-panel flex min-h-0 flex-1 flex-col gap-4 rounded-2xl p-6">
+    <section className="card-panel flex min-h-0 flex-1 flex-col gap-4 rounded-2xl p-4 sm:p-6">
       <header className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-xl font-semibold text-black">Controls</h2>
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onToggleAdvanced}
-              className="rounded-full border border-(--mit-gray-200) px-3 py-1 text-xs font-semibold text-black transition hover:border-black"
+              className="min-h-9 rounded-full border border-(--mit-gray-200) px-3 py-1 text-xs font-semibold text-black transition hover:border-black"
               aria-pressed={showAdvanced}
             >
               {showAdvanced ? "Hide advanced" : "Show advanced"}
@@ -104,7 +90,7 @@ export default function ControlsPanel({
         <div className="text-xs text-(--mit-gray-700)">
           Task: {task === "regression" ? "Regression" : "Classification"}
         </div>
-        <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-(--mit-gray-700)">Epoch</span>
             <span className="text-base font-semibold text-black">
@@ -116,7 +102,7 @@ export default function ControlsPanel({
               Loss
               <button
                 type="button"
-                className="ml-1 rounded-full border border-(--mit-gray-200) px-2 py-0.5 text-xs text-(--mit-gray-700)"
+                className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-(--mit-gray-200) text-xs text-(--mit-gray-700)"
                 title="Average error between predictions and targets."
                 aria-label="Loss help"
               >
@@ -132,7 +118,7 @@ export default function ControlsPanel({
               Accuracy
               <button
                 type="button"
-                className="ml-1 rounded-full border border-(--mit-gray-200) px-2 py-0.5 text-xs text-(--mit-gray-700)"
+                className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-(--mit-gray-200) text-xs text-(--mit-gray-700)"
                 title="Share of correct classifications."
                 aria-label="Accuracy help"
               >
@@ -153,7 +139,7 @@ export default function ControlsPanel({
               type="number"
               value={seed}
               onChange={(event) => onSeedChange(Number(event.target.value))}
-              className="rounded-lg border border-(--mit-gray-200) bg-white px-2 py-1 text-sm"
+              className="min-h-10 rounded-lg border border-(--mit-gray-200) bg-white px-2 py-1 text-sm"
               disabled={isTraining}
               aria-label="Random seed for initialization"
             />
@@ -174,7 +160,7 @@ export default function ControlsPanel({
           Dataset
           <button
             type="button"
-            className="ml-2 rounded-full border border-(--mit-gray-200) px-2 py-0.5 text-xs text-(--mit-gray-700)"
+            className="ml-2 inline-flex h-6 w-6 items-center justify-center rounded-full border border-(--mit-gray-200) text-xs text-(--mit-gray-700)"
             title="Pick a dataset to see how the model behaves."
             aria-label="Dataset help"
           >
@@ -185,7 +171,7 @@ export default function ControlsPanel({
           id="dataset-select"
           value={datasetId}
           onChange={(event) => onDatasetChange(event.target.value)}
-          className="rounded-xl border border-(--mit-gray-200) bg-white px-3 py-2 text-sm"
+          className="min-h-10 rounded-xl border border-(--mit-gray-200) bg-white px-3 py-2 text-sm"
           disabled={isTraining}
           title={isTraining ? "Pause training to change datasets." : ""}
         >
@@ -202,7 +188,7 @@ export default function ControlsPanel({
           Model
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <label
             className="text-sm font-medium text-black"
@@ -220,7 +206,7 @@ export default function ControlsPanel({
                 hiddenLayers: Number(event.target.value),
               })
             }
-            className="rounded-xl border border-(--mit-gray-200) bg-white px-3 py-2 text-sm"
+            className="min-h-10 rounded-xl border border-(--mit-gray-200) bg-white px-3 py-2 text-sm"
             disabled={isTraining}
             title={isTraining ? "Pause training to change the architecture." : ""}
           >
@@ -251,7 +237,7 @@ export default function ControlsPanel({
                 neurons: Number(event.target.value),
               })
             }
-            className="rounded-xl border border-(--mit-gray-200) bg-white px-3 py-2 text-sm"
+            className="min-h-10 rounded-xl border border-(--mit-gray-200) bg-white px-3 py-2 text-sm"
             disabled={isTraining || config.hiddenLayers === 0}
             title={
               isTraining

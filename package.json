@@ -1,7 +1,15 @@
 {
   "name": "neural-network-playground",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PangeaHoldings/neural-network-playground.git"
+  },
+  "author": "Emilio Bogantes <emilio.bogantes@professional.mit.edu>",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,21 +17,24 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@xyflow/react": "^12.10.0",
-    "framer-motion": "^12.34.0",
+    "@xyflow/react": "^12.10.1",
+    "framer-motion": "^12.34.3",
     "next": "16.1.6",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "recharts": "^3.7.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/node": "^25.3.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.3",
     "eslint-config-next": "16.1.6",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "minimatch": "^10.2.2"
   }
 }

@@ -1,15 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  CartesianGrid,
-  Line,
-  ResponsiveContainer,
-  Scatter,
-  ScatterChart,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
 import type { Dataset, Network, TaskType } from "@/lib/nn/types";
 import { predict } from "@/lib/nn/network";
 
@@ -18,10 +10,24 @@ interface DataPlotProps {
   task: TaskType;
   network: Network | null;
   insight?: string;
-  epoch?: number;
+  isTraining?: boolean;
 }
 
-export default function DataPlot({ dataset, task, network, insight, epoch }: DataPlotProps) {
+const RegressionPlotClient = dynamic(
+  () => import("./charts/RegressionPlotClient"),
+  {
+    ssr: false,
+    loading: () => <div className="h-full min-h-40 w-full" aria-hidden="true" />,
+  }
+);
+
+export default function DataPlot({
+  dataset,
+  task,
+  network,
+  insight,
+  isTraining = false,
+}: DataPlotProps) {
   const regressionLine = useMemo(() => {
     if (!network || task !== "regression") {
       return [] as { x: number; y: number }[];
@@ -36,24 +42,45 @@ export default function DataPlot({ dataset, task, network, insight, epoch }: Dat
       points.push({ x, y });
     }
     return points;
-  }, [dataset, network, task, epoch]);
+  }, [dataset, network, task]);
 
   const heatmap = useMemo(() => {
-    if (!network || task !== "classification") {
+    if (!network || task !== "classification" || network.inputSize < 2) {
       return [] as { x: number; y: number; value: number }[];
     }
-    const grid = 30;
+    const grid = isTraining ? 18 : 30;
     const cells = [] as { x: number; y: number; value: number }[];
     for (let i = 0; i < grid; i += 1) {
       for (let j = 0; j < grid; j += 1) {
         const x = (i + 0.5) / grid;
         const y = (j + 0.5) / grid;
-        const value = predict(network, [x, y])[0];
+        const prediction = predict(network, [x, y])[0];
+        const value = Number.isFinite(prediction) ? prediction : 0.5;
         cells.push({ x: i / grid, y: j / grid, value });
       }
     }
     return cells;
-  }, [network, task, epoch]);
+  }, [isTraining, network, task]);
+
+  const classificationPoints = useMemo(() => {
+    if (task !== "classification") {
+      return [] as { x: number; y: number; isClassOne: boolean }[];
+    }
+
+    return dataset.points
+      .filter(
+        (point) =>
+          point.x.length >= 2 &&
+          point.y.length >= 1 &&
+          Number.isFinite(point.x[0]) &&
+          Number.isFinite(point.x[1])
+      )
+      .map((point) => ({
+        x: point.x[0],
+        y: point.x[1],
+        isClassOne: point.y[0] > 0.5,
+      }));
+  }, [dataset.points, task]);
 
   if (task === "regression") {
     const scatterData = dataset.points.map((point) => ({
@@ -76,32 +103,7 @@ export default function DataPlot({ dataset, task, network, insight, epoch }: Dat
           </div>
         </header>
         <div className="h-full min-h-40 w-full min-w-0">
-          <ResponsiveContainer width="100%" height="100%" minHeight={160} minWidth={0}>
-            <ScatterChart margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="4 4" stroke="var(--mit-gray-100)" />
-              <XAxis
-                dataKey="x"
-                type="number"
-                tick={{ fontSize: 12, fill: "var(--mit-gray-700)" }}
-                stroke="var(--mit-gray-700)"
-              />
-              <YAxis
-                dataKey="y"
-                type="number"
-                tick={{ fontSize: 12, fill: "var(--mit-gray-700)" }}
-                stroke="var(--mit-gray-700)"
-              />
-              <Scatter data={scatterData} fill="var(--mit-gray)" />
-              <Line
-                type="monotone"
-                dataKey="y"
-                data={regressionLine}
-                stroke="var(--mit-red)"
-                strokeWidth={2}
-                dot={false}
-              />
-            </ScatterChart>
-          </ResponsiveContainer>
+          <RegressionPlotClient scatterData={scatterData} regressionLine={regressionLine} />
         </div>
       </section>
     );
@@ -109,6 +111,8 @@ export default function DataPlot({ dataset, task, network, insight, epoch }: Dat
 
   // Validate that the dataset has 2D inputs for classification
   const is2D = dataset.inputSize === 2;
+  const hasCompatibleModel =
+    !network || (network.inputSize === 2 && network.outputSize >= 1);
 
   return (
     <section className="card-panel flex h-full min-h-0 flex-col rounded-2xl p-4">
@@ -133,7 +137,7 @@ export default function DataPlot({ dataset, task, network, insight, epoch }: Dat
       </header>
       <div className="mb-2 flex items-center gap-3 text-xs text-(--mit-gray-700)">
         <span>Low p</span>
-        <div className="h-2 w-32 rounded-full bg-linear-to-r from-[#1f3a93] via-[#cfd6db] to-[#750014]" />
+        <div className="h-2 w-32 rounded-full bg-linear-to-r from-(--mit-gray-700) via-(--mit-gray-100) to-(--mit-red)" />
         <span>High p</span>
       </div>
       <div className="relative h-full min-h-40 w-full min-w-0">
@@ -141,21 +145,25 @@ export default function DataPlot({ dataset, task, network, insight, epoch }: Dat
           <div className="flex h-full items-center justify-center text-xs text-(--mit-gray-700)">
             Classification view requires 2D data.
           </div>
+        ) : !hasCompatibleModel ? (
+          <div className="flex h-full items-center justify-center text-xs text-(--mit-gray-700)">
+            Model shape does not match this dataset. Reinitialize to continue.
+          </div>
         ) : !network ? (
           <div className="flex h-full items-center justify-center text-xs text-(--mit-gray-700)">
             Initialize the model to see predicted probabilities.
           </div>
         ) : (
-          <svg key={`heatmap-${epoch || 0}`} viewBox="0 0 100 100" className="h-full w-full rounded-xl" style={{ display: 'block' }}>
+          <svg viewBox="0 0 100 100" className="h-full w-full rounded-xl" style={{ display: "block" }}>
             {heatmap.map((cell, index) => {
               const intensity = Math.min(1, Math.max(0, cell.value));
               const red = Math.round(255 * intensity);
               const blue = Math.round(255 * (1 - intensity));
               const green = 30;
               const color = `rgb(${red}, ${green}, ${blue})`;
-              const cellSize = 100 / 30;
+              const cellSize = 100 / Math.sqrt(heatmap.length || 1);
               const x = cell.x * 100;
-              const y = (1 - cell.y - 1/30) * 100;
+              const y = (1 - cell.y - cellSize / 100) * 100;
               return (
                 <rect
                   key={`cell-${index}`}
@@ -168,10 +176,9 @@ export default function DataPlot({ dataset, task, network, insight, epoch }: Dat
                 />
               );
             })}
-            {dataset.points.map((point, index) => {
-              const isClassOne = point.y[0] > 0.5;
-              const x = point.x[0] * 100;
-              const y = (1 - point.x[1]) * 100;
+            {classificationPoints.map((point, index) => {
+              const x = point.x * 100;
+              const y = (1 - point.y) * 100;
               const dotSize = 1.2;
               return (
                 <circle
@@ -179,7 +186,7 @@ export default function DataPlot({ dataset, task, network, insight, epoch }: Dat
                   cx={x}
                   cy={y}
                   r={dotSize}
-                  fill={isClassOne ? "#FF1423" : "#4A5568"}
+                  fill={point.isClassOne ? "var(--mit-bright-red)" : "var(--mit-gray-700)"}
                   stroke="white"
                   strokeWidth="0.4"
                 />
